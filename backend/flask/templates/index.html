@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Property Price Prediction</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: auto;
+      padding: 20px;
+      background-color: #007961;
+      color: white;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 12px;
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background-color: #a0a0a0;
+      cursor: not-allowed;
+    }
+
+    ul {
+      margin-top: 10px;
+    }
+
+    .prediction-results {
+      margin-top: 30px;
+      background-color: white;
+      color: #333;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    h2, h3 {
+      color: white;
+    }
+
+    h4 {
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Real Estate Property Price Prediction</h2>
+
+  <form id="propertyForm">
+    <label for="bedrooms">Bedrooms:</label>
+    <input type="number" id="bedrooms" name="bedrooms" min="0" />
+
+    <label for="bathrooms">Bathrooms:</label>
+    <input type="number" id="bathrooms" name="bathrooms" min="0" />
+
+    <label for="builtup_area">Built-up Area (sqft):</label>
+    <input type="number" id="builtup_area" name="builtup_area" min="0" />
+
+    <label for="carparks">Car Parks:</label>
+    <input type="number" id="carparks" name="carparks" min="0" />
+
+    <label for="state">State:</label>
+    <select id="state" name="state" required>
+      <option value="">Select State</option>
+      <option value="Kuala Lumpur">Kuala Lumpur</option>
+      <option value="Putrajaya">Putrajaya</option>
+      <option value="Labuan">Labuan</option>
+      <option value="Penang">Penang</option>
+      <option value="Selangor">Selangor</option>
+      <option value="Malacca">Malacca</option>
+      <option value="Negeri Sembilan">Negeri Sembilan</option>
+      <option value="Sarawak">Sarawak</option>
+      <option value="Pahang">Pahang</option>
+      <option value="Johor">Johor</option>
+      <option value="Perak">Perak</option>
+      <option value="Terengganu">Terengganu</option>
+      <option value="Kedah">Kedah</option>
+      <option value="Perlis">Perlis</option>
+      <option value="Sabah">Sabah</option>
+      <option value="Kelantan">Kelantan</option>
+    </select>
+
+    <label for="property_type">Property Type:</label>
+    <input type="text" id="property_type" name="property_type" required />
+
+    <label for="description">Property Description:</label>
+    <textarea id="description" name="description" rows="4"></textarea>
+
+    <h4>Price per sqft (auto-filled): <span id="pricePerSqftDisplay">--</span></h4>
+
+    <button type="submit" id="submitBtn">Predict Price</button>
+  </form>
+
+  <h3>Predicted Property Price: <span id="predictionResult">--</span></h3>
+
+  <div class="prediction-results">
+    <h4>Explanation:</h4>
+    <ul id="explanationList"></ul>
+
+    <h4>AI Recommendation:</h4>
+    <p id="recommendationText">--</p>
+  </div>
+
+  <script>
+    // Price per sqft reference for different states
+    const pricePerSqftByState = {
+      "Kuala Lumpur": 900,
+      "Putrajaya": 850,
+      "Labuan": 750,
+      "Penang": 850,
+      "Selangor": 700,
+      "Malacca": 650,
+      "Negeri Sembilan": 600,
+      "Sarawak": 550,
+      "Pahang": 500,
+      "Johor": 600,
+      "Perak": 550,
+      "Terengganu": 500,
+      "Kedah": 450,
+      "Perlis": 400,
+      "Sabah": 500,
+      "Kelantan": 400
+    };
+
+    // Update price per sqft when state is selected
+    const stateSelect = document.getElementById('state');
+    const pricePerSqftDisplay = document.getElementById('pricePerSqftDisplay');
+    let currentPricePerSqft = 0;
+
+    stateSelect.addEventListener('change', () => {
+      const selectedState = stateSelect.value;
+      currentPricePerSqft = pricePerSqftByState[selectedState] || 0;
+      pricePerSqftDisplay.textContent = currentPricePerSqft ? `RM ${currentPricePerSqft}` : '--';
+    });
+
+    // Handle form submission
+    document.getElementById("propertyForm").addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      const bedrooms = Number(document.getElementById("bedrooms").value) || 0;
+      const bathrooms = Number(document.getElementById("bathrooms").value) || 0;
+      const builtup_area = Number(document.getElementById("builtup_area").value) || 0;
+      const carparks = Number(document.getElementById("carparks").value) || 0;
+      const property_type = document.getElementById("property_type").value.trim();
+      const descriptionRaw = document.getElementById("description").value || "";
+      const descriptionClean = descriptionRaw.replace(/[\n\r\t]+/g, " ").replace(/\s+/g, " ").trim();
+
+      if (!property_type || !stateSelect.value) {
+        alert("Please fill all the required fields.");
+        return;
+      }
+
+      const payload = {
+        model: "xgboost",
+        "Bedroom(s)_clean": bedrooms,
+        "Bathroom(s)_clean": bathrooms,
+        "Builtup_area_capped": builtup_area,
+        "CarParks_capped": carparks,
+        "price_per_sqft": currentPricePerSqft,
+        "Property type": property_type,
+        "description": descriptionClean
+      };
+
+      const submitBtn = document.getElementById("submitBtn");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Predicting...";
+
+      try {
+        const response = await fetch("http://127.0.0.1:5000/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+
+        document.getElementById("predictionResult").textContent = `RM ${result.predicted_price.toFixed(2)}`;
+        const explanationList = document.getElementById("explanationList");
+        explanationList.innerHTML = "";
+        result.explanation.forEach(line => {
+          const li = document.createElement("li");
+          li.textContent = line;
+          explanationList.appendChild(li);
+        });
+
+        document.getElementById("recommendationText").textContent = result.recommendation;
+      } catch (error) {
+        console.error(error);
+        alert("Error predicting property price. Please try again.");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Predict Price";
+      }
+    });
+  </script>
+</body>
+
+</html>
